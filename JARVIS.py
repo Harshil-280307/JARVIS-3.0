@@ -1,17 +1,19 @@
-# JARVIS 3.0: Full Auto-Flirty, Intelligent Discord Bot
+# jarvis_bot.py
 
 import discord
 from discord.ext import commands, tasks
 import openai
 import random
-import aiohttp
-import asyncio
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# Load environment variables automatically on Render (no .env needed)
+TOKEN = os.getenv("MTM3OTY5NTkxMTcwNTUxMzk5NA.G4TvX5.SGmwcVru8ldDZQw9jTeI2WeeH82i6mt5KD8dHc")       # Discord bot token
+OPENAI_API_KEY = os.getenv("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") # OpenAI API key
+
+if not TOKEN or not OPENAI_API_KEY:
+    print("ERROR: Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY environment variables!")
+    exit(1)
+
 openai.api_key = OPENAI_API_KEY
 
 intents = discord.Intents.all()
@@ -23,7 +25,6 @@ flirty_gifs = [
     "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif"
 ]
 
-# --- Gender Detection ---
 def detect_gender(username, roles):
     name = username.lower()
     role_names = [r.name.lower() for r in roles]
@@ -34,7 +35,6 @@ def detect_gender(username, roles):
     else:
         return "unknown"
 
-# --- Generate OpenAI Chat Reply ---
 async def get_ai_reply(prompt):
     try:
         response = openai.ChatCompletion.create(
@@ -46,9 +46,9 @@ async def get_ai_reply(prompt):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
+        print("OpenAI API error:", e)
         return "Oops, even genius bots need a break 😅"
 
-# --- Auto Talker ---
 @tasks.loop(seconds=90)
 async def auto_talk():
     for guild in bot.guilds:
@@ -63,13 +63,11 @@ async def auto_talk():
                     await channel.send(f"Hey {target.mention} 👀\n{msg}")
                 break
 
-# --- On Ready ---
 @bot.event
 async def on_ready():
     print(f"JARVIS is online as {bot.user}")
     auto_talk.start()
 
-# --- Smart Listener ---
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
@@ -95,4 +93,5 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-bot.run(TOKEN)
+if __name__ == "__main__":
+    bot.run(TOKEN)
