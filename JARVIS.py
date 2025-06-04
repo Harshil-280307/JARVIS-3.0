@@ -7,8 +7,8 @@ import random
 import os
 
 # Load environment variables automatically on Render (no .env needed)
-TOKEN = os.getenv("MTM3OTY5NTkxMTcwNTUxMzk5NA.G4TvX5.SGmwcVru8ldDZQw9jTeI2WeeH82i6mt5KD8dHc")       # Discord bot token
-OPENAI_API_KEY = os.getenv("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") # OpenAI API key
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")       # Discord bot token
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # OpenAI API key
 
 if not TOKEN or not OPENAI_API_KEY:
     print("ERROR: Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY environment variables!")
