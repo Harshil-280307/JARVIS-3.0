@@ -64,6 +64,7 @@ async def get_ai_reply(prompt):
         return response.choices[0].message.content.strip()
     except Exception as e:
         print("🔴 OpenAI Error:", e)
+        traceback.print_exc()
         return "Oops, even genius bots need a break 😅"
 
 # --- Auto-talk loop ---
