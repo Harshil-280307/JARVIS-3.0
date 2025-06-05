@@ -5,9 +5,9 @@ from flask import Flask
 
 import discord
 from discord.ext import commands, tasks
-from openai import OpenAI
+import openai
 
-# Load env vars
+# --- Load environment variables ---
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.getenv("PORT", 5000))
@@ -16,29 +16,31 @@ if not TOKEN or not OPENAI_API_KEY:
     print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
     exit(1)
 
-# OpenAI client (new SDK)
-client = OpenAI(api_key=OPENAI_API_KEY)
+# --- Configure OpenAI ---
+openai.api_key = OPENAI_API_KEY
 
-# Discord bot setup
+# --- Discord bot setup ---
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Flask app for Render.com uptime
+# --- Flask server for uptime ---
 app = Flask(__name__)
+
 @app.route("/")
 def home():
-    return "JARVIS bot is alive! 💬"
+    return "🤖 JARVIS bot is alive and flirty!"
+
 def run_flask():
     app.run(host="0.0.0.0", port=PORT)
 
-# Flirty GIFs
+# --- Flirty GIFs ---
 flirty_gifs = [
     "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
     "https://media.giphy.com/media/l0IylOPCNkiqOgMyA/giphy.gif",
     "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif"
 ]
 
-# Gender detection (optional)
+# --- Gender detection helper ---
 def detect_gender(username, roles):
     name = username.lower()
     role_names = [r.name.lower() for r in roles]
@@ -49,22 +51,22 @@ def detect_gender(username, roles):
     else:
         return "unknown"
 
-# Get AI response from OpenAI
+# --- Get AI reply from OpenAI ---
 async def get_ai_reply(prompt):
     try:
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
                 {"role": "user", "content": prompt}
             ]
         )
-        return response.choices[0].message.content.strip()
+        return response.choices[0].message["content"].strip()
     except Exception as e:
         print("🔴 OpenAI Error:", e)
         return "Oops, even genius bots need a break 😅"
 
-# Auto-talk loop
+# --- Auto-talk loop ---
 @tasks.loop(seconds=90)
 async def auto_talk():
     for guild in bot.guilds:
@@ -79,7 +81,7 @@ async def auto_talk():
                     await channel.send(f"Hey {target.mention} 😏\n{msg}")
                 break
 
-# Bot events
+# --- Discord Events ---
 @bot.event
 async def on_ready():
     print(f"✅ JARVIS is online as {bot.user}")
@@ -111,7 +113,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# Main entry point
+# --- Start Flask and Bot ---
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(TOKEN)
