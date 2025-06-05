@@ -1,21 +1,22 @@
 import discord
 from discord.ext import commands, tasks
-import openai
+from openai import OpenAI
 import random
 import os
 from flask import Flask
 import threading
 
-# Load environment variables automatically on Render (no .env needed)
+# Load environment variables automatically on Render
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")       # Discord bot token
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # OpenAI API key
-PORT = int(os.getenv("PORT", 5000))           # Port for Flask server (default 5000)
+PORT = int(os.getenv("PORT", 5000))          # Port for Flask server (default 5000)
 
 if not TOKEN or not OPENAI_API_KEY:
     print("ERROR: Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY environment variables!")
     exit(1)
 
-openai.api_key = OPENAI_API_KEY
+# Create OpenAI client (new SDK format)
+client = OpenAI(api_key=OPENAI_API_KEY)
 
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
@@ -38,7 +39,7 @@ def detect_gender(username, roles):
 
 async def get_ai_reply(prompt):
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Talk casually, add emojis, pickup lines, and sass."},
@@ -47,7 +48,7 @@ async def get_ai_reply(prompt):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print("OpenAI API error:", e)
+        print("[ERROR] OpenAI API error:", e)
         return "Oops, even genius bots need a break 😅"
 
 @tasks.loop(seconds=90)
@@ -81,7 +82,6 @@ async def on_message(message):
         reply = await get_ai_reply(prompt)
         await message.channel.send(reply)
 
-        # 25% chance to add a flirty GIF
         if random.randint(1, 4) == 1:
             await message.channel.send(random.choice(flirty_gifs))
 
@@ -102,12 +102,8 @@ def home():
     return "Jarvis Bot is running! 🤖💬"
 
 def run_flask():
-    # Run Flask app in a separate thread so it doesn't block the bot
     app.run(host="0.0.0.0", port=PORT)
 
 if __name__ == "__main__":
-    # Start Flask server in background thread
     threading.Thread(target=run_flask).start()
-    
-    # Start Discord bot (this blocks main thread)
     bot.run(TOKEN)
