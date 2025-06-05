@@ -1,6 +1,7 @@
 import os
 import random
 import threading
+import traceback
 from flask import Flask
 
 import discord
@@ -62,6 +63,7 @@ async def get_ai_reply(prompt):
             ]
         )
         return response.choices[0].message.content.strip()
+
     except Exception as e:
         print("🔴 OpenAI Error:", e)
         traceback.print_exc()
