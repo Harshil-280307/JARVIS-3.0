@@ -1,3 +1,4 @@
+
 import os
 import random
 import threading
@@ -26,10 +27,15 @@ fallback_flirty = load_fallback_lines("fallback_flirty.txt")
 fallback_funny = load_fallback_lines("fallback_funny.txt")
 fallback_angry = load_fallback_lines("fallback_angry.txt")
 fallback_roast = load_fallback_lines("fallback_roast.txt")
+fallback_normal = load_fallback_lines("fallback_normal.txt")
 
-all_fallback_replies = fallback_flirty + fallback_funny + fallback_angry + fallback_roast
+all_fallback_replies = (
+    fallback_flirty + fallback_funny +
+    fallback_angry + fallback_roast +
+    fallback_normal
+)
 
-# --- Configure OpenAI with new client ---
+# --- Configure OpenAI ---
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Discord bot setup ---
@@ -70,19 +76,19 @@ async def get_ai_reply(prompt):
         response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
+                {"role": "system", "content": "You are JARVIS: a flirty, witty, funny, human-like AI who sounds like a cool friend."},
                 {"role": "user", "content": prompt}
             ]
         )
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print("🔴 OpenAI Error (using fallback):", e)
+        print("🔴 OpenAI Error:", e)
         traceback.print_exc()
         return random.choice(all_fallback_replies)
 
-# --- Auto-talk loop ---
-@tasks.loop(seconds=90)
+# --- Auto-talk every 1.5 hours (5400 seconds) ---
+@tasks.loop(seconds=5400)
 async def auto_talk():
     for guild in bot.guilds:
         for channel in guild.text_channels:
@@ -110,8 +116,8 @@ async def on_message(message):
     content = message.content.lower()
     gender = detect_gender(message.author.name, message.author.roles)
 
-    if any(word in content for word in ["hi", "hello", "bored", "single", "love", "miss me"]):
-        prompt = f"{message.author.name} ({gender}) says: {message.content}. Reply flirtatiously or humorously."
+    if any(word in content for word in ["hi", "hello", "bored", "single", "love", "miss me", "you there", "talk", "jarvis"]):
+        prompt = f"{message.author.name} ({gender}) says: {message.content}. Reply casually or flirtatiously."
         reply = await get_ai_reply(prompt)
         await message.channel.send(reply)
 
