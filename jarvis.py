@@ -5,7 +5,7 @@ from flask import Flask
 
 import discord
 from discord.ext import commands, tasks
-import openai
+from openai import OpenAI
 
 # --- Load environment variables ---
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -16,8 +16,8 @@ if not TOKEN or not OPENAI_API_KEY:
     print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
     exit(1)
 
-# --- Configure OpenAI ---
-openai.api_key = OPENAI_API_KEY
+# --- Configure OpenAI with new client ---
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Discord bot setup ---
 intents = discord.Intents.all()
@@ -54,14 +54,14 @@ def detect_gender(username, roles):
 # --- Get AI reply from OpenAI ---
 async def get_ai_reply(prompt):
     try:
-        response = openai.ChatCompletion.create(
+        response = openai_client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
                 {"role": "user", "content": prompt}
             ]
         )
-        return response.choices[0].message["content"].strip()
+        return response.choices[0].message.content.strip()
     except Exception as e:
         print("🔴 OpenAI Error:", e)
         return "Oops, even genius bots need a break 😅"
@@ -100,7 +100,6 @@ async def on_message(message):
         reply = await get_ai_reply(prompt)
         await message.channel.send(reply)
 
-        # Random chance to send a gif
         if random.randint(1, 4) == 1:
             await message.channel.send(random.choice(flirty_gifs))
 
