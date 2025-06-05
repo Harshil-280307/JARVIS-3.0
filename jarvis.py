@@ -6,19 +6,21 @@ from flask import Flask
 
 import discord
 from discord.ext import commands, tasks
-from openai import OpenAI
+
+import google.generativeai as genai
 
 # --- Load environment variables ---
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")  # Use Gemini key now
 PORT = int(os.getenv("PORT", 5000))
 
-if not TOKEN or not OPENAI_API_KEY:
-    print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
+if not TOKEN or not GEMINI_API_KEY:
+    print("❌ Missing DISCORD_BOT_TOKEN or GEMINI_API_KEY!")
     exit(1)
 
-# --- Configure OpenAI with new client ---
-openai_client = OpenAI(api_key=OPENAI_API_KEY)
+# --- Configure Gemini API ---
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel("gemini-pro")
 
 # --- Discord bot setup ---
 intents = discord.Intents.all()
@@ -29,7 +31,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🤖 JARVIS bot is alive and flirty!"
+    return "🤖 JARVIS bot is alive and flirty with Gemini!"
 
 def run_flask():
     app.run(host="0.0.0.0", port=PORT)
@@ -52,22 +54,15 @@ def detect_gender(username, roles):
     else:
         return "unknown"
 
-# --- Get AI reply from OpenAI ---
+# --- Get AI reply from Gemini ---
 async def get_ai_reply(prompt):
     try:
-        response = openai_client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        return response.choices[0].message.content.strip()
-
+        response = model.generate_content(prompt)
+        return response.text.strip()
     except Exception as e:
-        print("🔴 OpenAI Error:", e)
+        print("🔴 Gemini API Error:", e)
         traceback.print_exc()
-        return "Oops, even genius bots need a break 😅"
+        return "Oops, Gemini is feeling shy right now 😅"
 
 # --- Auto-talk loop ---
 @tasks.loop(seconds=90)
