@@ -1,56 +1,70 @@
+import os
+import random
+import threading
+from flask import Flask
+
 import discord
 from discord.ext import commands, tasks
 from openai import OpenAI
-import random
-import os
-from flask import Flask
-import threading
 
-# Load environment variables automatically on Render
-TOKEN = os.getenv("DISCORD_BOT_TOKEN")       # Discord bot token
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # OpenAI API key
-PORT = int(os.getenv("PORT", 5000))          # Port for Flask server (default 5000)
+# Load env vars
+TOKEN = os.getenv("DISCORD_BOT_TOKEN")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+PORT = int(os.getenv("PORT", 5000))
 
 if not TOKEN or not OPENAI_API_KEY:
-    print("ERROR: Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY environment variables!")
+    print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
     exit(1)
 
-# Create OpenAI client (new SDK format)
+# OpenAI client (new SDK)
 client = OpenAI(api_key=OPENAI_API_KEY)
 
+# Discord bot setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# Flask app for Render.com uptime
+app = Flask(__name__)
+@app.route("/")
+def home():
+    return "JARVIS bot is alive! 💬"
+def run_flask():
+    app.run(host="0.0.0.0", port=PORT)
+
+# Flirty GIFs
 flirty_gifs = [
     "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
     "https://media.giphy.com/media/l0IylOPCNkiqOgMyA/giphy.gif",
     "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif"
 ]
 
+# Gender detection (optional)
 def detect_gender(username, roles):
     name = username.lower()
     role_names = [r.name.lower() for r in roles]
-    if any(word in name for word in ["princess", "girl", "cutie"]) or "girl" in role_names:
+    if any(w in name for w in ["princess", "girl", "cutie"]) or "girl" in role_names:
         return "female"
-    elif any(word in name for word in ["king", "raj", "boy"]) or "boy" in role_names:
+    elif any(w in name for w in ["king", "raj", "boy"]) or "boy" in role_names:
         return "male"
     else:
         return "unknown"
 
+# Get AI response from OpenAI
 async def get_ai_reply(prompt):
     try:
         response = client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=[
-                {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Talk casually, add emojis, pickup lines, and sass."},
+                {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
                 {"role": "user", "content": prompt}
             ]
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        print("[ERROR] OpenAI API error:", e)
+        print("🔴 OpenAI Error:", e)
         return "Oops, even genius bots need a break 😅"
 
+# Auto-talk loop
 @tasks.loop(seconds=90)
 async def auto_talk():
     for guild in bot.guilds:
@@ -60,14 +74,15 @@ async def auto_talk():
                 if members:
                     target = random.choice(members)
                     name = target.display_name
-                    prompt = f"Start a casual, flirty or funny convo with someone named {name}"
+                    prompt = f"Start a casual, flirty or funny conversation with someone named {name}."
                     msg = await get_ai_reply(prompt)
-                    await channel.send(f"Hey {target.mention} 👀\n{msg}")
+                    await channel.send(f"Hey {target.mention} 😏\n{msg}")
                 break
 
+# Bot events
 @bot.event
 async def on_ready():
-    print(f"JARVIS is online as {bot.user}")
+    print(f"✅ JARVIS is online as {bot.user}")
     auto_talk.start()
 
 @bot.event
@@ -77,11 +92,13 @@ async def on_message(message):
 
     content = message.content.lower()
     gender = detect_gender(message.author.name, message.author.roles)
-    if any(w in content for w in ["hi", "hello", "bored", "single", "love", "miss me"]):
+
+    if any(word in content for word in ["hi", "hello", "bored", "single", "love", "miss me"]):
         prompt = f"{message.author.name} ({gender}) says: {message.content}. Reply flirtatiously or humorously."
         reply = await get_ai_reply(prompt)
         await message.channel.send(reply)
 
+        # Random chance to send a gif
         if random.randint(1, 4) == 1:
             await message.channel.send(random.choice(flirty_gifs))
 
@@ -94,16 +111,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
-# --- Flask server for Render port binding ---
-app = Flask("")
-
-@app.route("/")
-def home():
-    return "Jarvis Bot is running! 🤖💬"
-
-def run_flask():
-    app.run(host="0.0.0.0", port=PORT)
-
+# Main entry point
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(TOKEN)
