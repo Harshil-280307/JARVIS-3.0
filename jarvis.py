@@ -1,14 +1,15 @@
-# jarvis_bot.py
-
 import discord
 from discord.ext import commands, tasks
 import openai
 import random
 import os
+from flask import Flask
+import threading
 
 # Load environment variables automatically on Render (no .env needed)
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")       # Discord bot token
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY") # OpenAI API key
+PORT = int(os.getenv("PORT", 5000))           # Port for Flask server (default 5000)
 
 if not TOKEN or not OPENAI_API_KEY:
     print("ERROR: Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY environment variables!")
@@ -93,5 +94,20 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+# --- Flask server for Render port binding ---
+app = Flask("")
+
+@app.route("/")
+def home():
+    return "Jarvis Bot is running! 🤖💬"
+
+def run_flask():
+    # Run Flask app in a separate thread so it doesn't block the bot
+    app.run(host="0.0.0.0", port=PORT)
+
 if __name__ == "__main__":
+    # Start Flask server in background thread
+    threading.Thread(target=run_flask).start()
+    
+    # Start Discord bot (this blocks main thread)
     bot.run(TOKEN)
