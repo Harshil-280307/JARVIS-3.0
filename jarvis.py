@@ -21,7 +21,8 @@ if not TOKEN or not GEMINI_API_KEY:
 genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Initialize Gemini model ---
-model = genai.TextGenerationModel.from_pretrained("gemini-pro")
+model = genai.GenerativeModel("gemini-pro")
+
 
 # --- Discord bot setup ---
 intents = discord.Intents.all()
@@ -58,19 +59,9 @@ def detect_gender(username, roles):
 # --- Get AI reply from Gemini ---
 async def get_ai_reply(prompt):
     try:
-        response = model.generate(
-            prompt=(
-                "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun.\n"
-                f"User says: {prompt}\n"
-                "Reply flirtatiously or humorously."
-            ),
-            max_output_tokens=256,
-            temperature=0.8,
-            top_p=0.95,
-            top_k=40,
-        )
-        # The response's generated text is here:
-        return response.candidates[0].output.strip()
+        response = model.generate_content(prompt)
+        return response.text.strip()
+
 
     except Exception as e:
         print("🔴 Gemini API Error:", e)
