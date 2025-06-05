@@ -17,6 +17,18 @@ if not TOKEN or not OPENAI_API_KEY:
     print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
     exit(1)
 
+# --- Load fallback replies from files ---
+def load_fallback_lines(filename):
+    with open(filename, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f if line.strip()]
+
+fallback_flirty = load_fallback_lines("fallback_flirty.txt")
+fallback_funny = load_fallback_lines("fallback_funny.txt")
+fallback_angry = load_fallback_lines("fallback_angry.txt")
+fallback_roast = load_fallback_lines("fallback_roast.txt")
+
+all_fallback_replies = fallback_flirty + fallback_funny + fallback_angry + fallback_roast
+
 # --- Configure OpenAI with new client ---
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
@@ -52,7 +64,7 @@ def detect_gender(username, roles):
     else:
         return "unknown"
 
-# --- Get AI reply from OpenAI ---
+# --- Get AI reply from OpenAI or fallback ---
 async def get_ai_reply(prompt):
     try:
         response = openai_client.chat.completions.create(
@@ -65,9 +77,9 @@ async def get_ai_reply(prompt):
         return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print("🔴 OpenAI Error:", e)
+        print("🔴 OpenAI Error (using fallback):", e)
         traceback.print_exc()
-        return "Oops, even genius bots need a break 😅"
+        return random.choice(all_fallback_replies)
 
 # --- Auto-talk loop ---
 @tasks.loop(seconds=90)
