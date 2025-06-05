@@ -6,23 +6,19 @@ from flask import Flask
 
 import discord
 from discord.ext import commands, tasks
-import google.generativeai as genai
+from openai import OpenAI
 
 # --- Load environment variables ---
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PORT = int(os.getenv("PORT", 5000))
 
-if not TOKEN or not GEMINI_API_KEY:
-    print("❌ Missing DISCORD_BOT_TOKEN or GEMINI_API_KEY!")
+if not TOKEN or not OPENAI_API_KEY:
+    print("❌ Missing DISCORD_BOT_TOKEN or OPENAI_API_KEY!")
     exit(1)
 
-# --- Configure Gemini API ---
-genai.configure(api_key=GEMINI_API_KEY)
-
-# --- Initialize Gemini model ---
-model = genai.GenerativeModel("gemini-pro")
-
+# --- Configure OpenAI with new client ---
+openai_client = OpenAI(api_key=OPENAI_API_KEY)
 
 # --- Discord bot setup ---
 intents = discord.Intents.all()
@@ -33,7 +29,7 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "🤖 JARVIS bot is alive and flirty with Gemini API!"
+    return "🤖 JARVIS bot is alive and flirty!"
 
 def run_flask():
     app.run(host="0.0.0.0", port=PORT)
@@ -56,15 +52,20 @@ def detect_gender(username, roles):
     else:
         return "unknown"
 
-# --- Get AI reply from Gemini ---
+# --- Get AI reply from OpenAI ---
 async def get_ai_reply(prompt):
     try:
-        response = model.generate_content(prompt)
-        return response.text.strip()
-
+        response = openai_client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a flirty, funny AI called JARVIS. Be sassy, humorous, casual and fun."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        return response.choices[0].message.content.strip()
 
     except Exception as e:
-        print("🔴 Gemini API Error:", e)
+        print("🔴 OpenAI Error:", e)
         traceback.print_exc()
         return "Oops, even genius bots need a break 😅"
 
