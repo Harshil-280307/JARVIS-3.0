@@ -1,4 +1,3 @@
-
 import os
 import random
 import threading
@@ -102,7 +101,9 @@ async def auto_talk():
                     await channel.send(f"Hey {target.mention} 😏\n{msg}")
                 break
 
-# --- Discord Events ---
+# --- Per-channel toggle for JARVIS replies ---
+enabled_channels = set()
+
 @bot.event
 async def on_ready():
     print(f"✅ JARVIS is online as {bot.user}")
@@ -114,6 +115,24 @@ async def on_message(message):
         return
 
     content = message.content.lower()
+    channel_id = message.channel.id
+
+    # Handle toggle commands
+    if content == "!jarvis on":
+        enabled_channels.add(channel_id)
+        await message.channel.send("😇 JARVIS is now ON in this channel.")
+        return
+
+    if content == "!jarvis off":
+        if channel_id in enabled_channels:
+            enabled_channels.remove(channel_id)
+        await message.channel.send("😏 JARVIS is now OFF in this channel.")
+        return
+
+    # If bot is not enabled in this channel, ignore messages
+    if channel_id not in enabled_channels:
+        return
+
     gender = detect_gender(message.author.name, message.author.roles)
 
     if any(word in content for word in ["hi", "hello", "bored", "single", "love", "miss me", "you there", "talk", "jarvis"]):
