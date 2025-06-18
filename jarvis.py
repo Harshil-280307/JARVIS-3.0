@@ -1,16 +1,16 @@
-# jarvis.py (UPDATED with OpenRouter fallback + smart replies)
-
 import os
 import random
 import threading
 import traceback
 from flask import Flask
-import httpx  # For OpenRouter
+import httpx
 import discord
 from discord.ext import commands, tasks
-from openai import OpenAI
+from dotenv import load_dotenv
 
-# --- Load environment variables ---
+# Load .env variables
+load_dotenv()
+
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
@@ -20,27 +20,35 @@ if not TOKEN:
     print("❌ Missing DISCORD_BOT_TOKEN!")
     exit(1)
 
-# --- Load fallback replies from files ---
+# Load fallback replies
 def load_fallback_lines(filename):
-    with open(filename, "r", encoding="utf-8") as f:
-        return [line.strip() for line in f if line.strip()]
+    try:
+        with open(filename, "r", encoding="utf-8") as f:
+            return [line.strip() for line in f if line.strip()]
+    except FileNotFoundError:
+        print(f"⚠️ File {filename} not found.")
+        return []
 
 fallback_flirty = load_fallback_lines("fallback_flirty.txt")
 fallback_funny = load_fallback_lines("fallback_funny.txt")
 fallback_angry = load_fallback_lines("fallback_angry.txt")
 fallback_roast = load_fallback_lines("fallback_roast.txt")
 fallback_normal = load_fallback_lines("fallback_normal.txt")
-
 all_fallback_replies = fallback_flirty + fallback_funny + fallback_angry + fallback_roast + fallback_normal
 
-# --- Configure OpenAI ---
-openai_client = OpenAI(api_key=OPENAI_API_KEY) if OPENAI_API_KEY else None
+# Configure OpenAI (v1)
+try:
+    import openai
+    if OPENAI_API_KEY:
+        openai.api_key = OPENAI_API_KEY
+except ImportError:
+    print("⚠️ openai module not installed. Fallback will be used.")
 
-# --- Discord bot setup ---
+# Discord bot setup
 intents = discord.Intents.all()
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- Flask server for uptime ---
+# Flask server
 app = Flask(__name__)
 
 @app.route("/")
@@ -50,14 +58,14 @@ def home():
 def run_flask():
     app.run(host="0.0.0.0", port=PORT)
 
-# --- Flirty GIFs ---
+# Flirty GIFs
 flirty_gifs = [
     "https://media.giphy.com/media/3oEjI6SIIHBdRxXI40/giphy.gif",
     "https://media.giphy.com/media/l0IylOPCNkiqOgMyA/giphy.gif",
     "https://media.giphy.com/media/3o6Zt481isNVuQI1l6/giphy.gif"
 ]
 
-# --- Gender detection helper ---
+# Gender detector
 def detect_gender(username, roles):
     name = username.lower()
     role_names = [r.name.lower() for r in roles]
@@ -65,32 +73,32 @@ def detect_gender(username, roles):
         return "female"
     elif any(w in name for w in ["king", "raj", "boy"]) or "boy" in role_names:
         return "male"
-    else:
-        return "unknown"
+    return "unknown"
 
-# --- Smart AI reply system with OpenRouter fallback ---
+# Smart AI response system
 async def get_ai_reply(prompt):
+    # Try OpenAI
     try:
-        if openai_client:
-            response = openai_client.chat.completions.create(
+        if OPENAI_API_KEY:
+            response = openai.ChatCompletion.create(
                 model="gpt-3.5-turbo",
                 messages=[
                     {"role": "system", "content": "You are JARVIS: a flirty, witty, human-like friend who chats like a real person."},
                     {"role": "user", "content": prompt}
                 ]
             )
-            return response.choices[0].message.content.strip()
+            return response.choices[0].message["content"].strip()
     except Exception as e:
         print("🔴 OpenAI Error:", e)
 
-    # OpenRouter fallback
+    # Try OpenRouter fallback
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
             "Content-Type": "application/json"
         }
         body = {
-            "model": "openchat/openchat-7b",  # Free and good model
+            "model": "openchat/openchat-7b",
             "messages": [
                 {"role": "system", "content": "You are JARVIS: a flirty, witty, human-like friend who chats like a real person."},
                 {"role": "user", "content": prompt}
@@ -101,12 +109,13 @@ async def get_ai_reply(prompt):
             res.raise_for_status()
             data = res.json()
             return data['choices'][0]['message']['content'].strip()
-
     except Exception as e:
         print("🔴 OpenRouter failed too:", e)
-        return random.choice(all_fallback_replies)
 
-# --- Auto-talk every 1.5 hours (5400 seconds) ---
+    # Final fallback
+    return random.choice(all_fallback_replies)
+
+# Auto message every 1.5 hrs
 @tasks.loop(seconds=5400)
 async def auto_talk():
     for guild in bot.guilds:
@@ -121,7 +130,6 @@ async def auto_talk():
                     await channel.send(f"Hey {target.mention} 😏\n{msg}")
                 break
 
-# --- Per-channel toggle for JARVIS replies ---
 enabled_channels = set()
 
 @bot.event
@@ -156,7 +164,6 @@ async def on_message(message):
     casual_keywords = ["hi", "hello", "bored", "single", "love", "miss me", "talk", "you there"]
 
     if mentioned or any(word in content for word in casual_keywords):
-        # Must reply if mentioned, otherwise reply randomly (30% chance)
         if mentioned or random.random() < 0.3:
             prompt = f"{message.author.name} ({gender}) says: {message.content}. Reply casually or flirtatiously."
             reply = await get_ai_reply(prompt)
@@ -165,16 +172,14 @@ async def on_message(message):
             if random.randint(1, 4) == 1:
                 await message.channel.send(random.choice(flirty_gifs))
 
+    # Anyone can use this command to delete messages
     if content == "jarvis delete":
-        if message.channel.permissions_for(message.author).manage_messages:
-            deleted = await message.channel.purge(limit=100)
-            await message.channel.send(f"Yes sir, {len(deleted)} messages deleted! 🧹")
-        else:
-            await message.channel.send("You need permissions for that, cutie 💅")
+        deleted = await message.channel.purge(limit=100)
+        await message.channel.send(f"Yes sir, {len(deleted)} messages deleted! 🧹")
 
     await bot.process_commands(message)
 
-# --- Start Flask and Bot ---
+# Run Flask + Bot
 if __name__ == "__main__":
     threading.Thread(target=run_flask).start()
     bot.run(TOKEN)
