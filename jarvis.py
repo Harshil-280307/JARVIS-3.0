@@ -115,8 +115,8 @@ async def get_ai_reply(prompt):
     # Final fallback
     return random.choice(all_fallback_replies)
 
-# Auto message every 1.5 hrs
-@tasks.loop(seconds=5400)
+# Auto message every 3 hrs
+@tasks.loop(seconds=10800)
 async def auto_talk():
     for guild in bot.guilds:
         for channel in guild.text_channels:
